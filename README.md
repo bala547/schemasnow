@@ -1,1 +1,1 @@
-this is schemachange for snowflake
+Schemachange for snowflake
