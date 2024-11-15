@@ -1,0 +1,75 @@
+pipeline {
+    agent any
+    environment {
+        // Database connection details
+        DB_URL = 'jdbc:snowflake://ni02885.ap-southeast-1.snowflakecomputing.com/?db=EMP'
+        DB_USER = 'bala547'
+        DB_PASSWORD = 'BALUvarun3.'
+        DB_SCHEMAS = 'BALA'
+        FLYWAY_LOCATIONS = '/var/lib/jenkins/workspace/flyway/repo/migrations'
+        FLYWAY_VERSION = '10.21.0'  // Adjust this if you want a different Flyway version
+        SNOWFLAKE_JDBC_DRIVER = 'snowflake-jdbc-3.13.7.jar'  // Update this if needed
+    }
+    stages {
+        stage('Checkout Code') {
+            steps {
+                // Checkout the latest code from your repository (replace with your VCS)
+                git url: 'https://github.com/bala547/schemasnow.git', branch: 'master'
+            }
+
+            }
+        
+
+        stage('Install Latest Flyway and JDBC Drivers') {
+            steps {
+                script {
+                    // Install Flyway
+                    echo 'Installing latest version of Flyway...'
+
+                    // Download Flyway
+                    sh '''
+                        curl -L https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}.tar.gz -o /tmp/flyway.tar.gz
+                        tar -xzf /tmp/flyway.tar.gz -C /tmp/
+                        if [ -L /usr/local/bin/flyway ]; then
+                            rm /usr/local/bin/flyway
+                        fi
+
+                        # Move the extracted Flyway to /usr/local/flyway
+                        sudo mv /tmp/flyway-${FLYWAY_VERSION} /usr/local/bin/flyway
+
+                        '''
+
+                    // Download Snowflake JDBC Driver
+                    echo 'Downloading Snowflake JDBC driver...'
+                    sh '''
+                        curl -L https://repo1.maven.org/maven2/net/snowflake/snowflake-jdbc/${SNOWFLAKE_JDBC_DRIVER} -o /usr/local/flyway/drivers/${SNOWFLAKE_JDBC_DRIVER}
+                    '''
+                }
+            }
+        }
+
+        stage('Run Flyway Migrations') {
+            steps {
+                script {
+                    // Run Flyway migration command
+                    echo 'Running Flyway migrations...'
+                    sh '''
+                        flyway -url=${DB_URL} -user=${DB_USER} -password=${DB_PASSWORD} -schemas=${DB_SCHEMAS} -locations=filesystem:${FLYWAY_LOCATIONS} migrate
+                    '''
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo 'Flyway migration process completed.'
+        }
+        success {
+            echo 'Migrations completed successfully.'
+        }
+        failure {
+            echo 'Migrations failed.'
+        }
+    }
+    
+}
